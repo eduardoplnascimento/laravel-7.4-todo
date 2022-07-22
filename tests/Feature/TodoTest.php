@@ -166,38 +166,6 @@ class TodoTest extends TestCase
     }
 
     /**
-     * Teste não deve armazenar um TODO sem o título
-     *
-     * @return void
-     */
-    public function testShouldNotStoreTodoWithoutTitle()
-    {
-        // Criar dados falsos
-        $data = $this->dataProvider(1, 0);
-
-        // Pegar dados do usuário
-        $user = $data['users'][0];
-        $this->actingAs($user);
-
-        // Criar dados para a requisição
-        $input = [
-            'color' => $this->faker->hexColor()
-        ];
-
-        // Acessar rota de criação de TODOs
-        $response = $this->post('/todos', $input);
-
-        // Verificar frase de erro
-        $response->assertSessionHasErrors(['title' => 'Um título é obrigatório']);
-
-        // Verificar se todo não foi criado no banco de dados
-        $this->assertDatabaseMissing('todos', [
-            'color' => $input['color'],
-            'user_id' => $user->id
-        ]);
-    }
-
-    /**
      * Teste deve completar um TODO
      *
      * @return void

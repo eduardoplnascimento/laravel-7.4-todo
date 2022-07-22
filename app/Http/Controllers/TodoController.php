@@ -6,25 +6,10 @@ use App\Models\Todo;
 use App\Services\TodoService;
 use App\Repositories\TodoRepository;
 use App\Http\Requests\StoreTodoRequest;
+use Illuminate\Http\Request;
 
 class TodoController extends Controller
 {
-    /**
-     * @var TodoRepository
-     */
-    protected $repository;
-
-    /**
-     * @var TodoService
-     */
-    protected $service;
-
-    public function __construct(TodoRepository $repository, TodoService $service)
-    {
-        $this->repository = $repository;
-        $this->service = $service;
-    }
-
     /**
      * Display a listing of the resource.
      *
@@ -34,7 +19,7 @@ class TodoController extends Controller
     {
         $user = auth()->user();
 
-        $todos = $this->repository->findWhere(['user_id' => $user->id]);
+        $todos = Todo::where('user_id', $user->id)->get();
 
         return view('dashboard', compact('user', 'todos'));
     }
@@ -42,27 +27,77 @@ class TodoController extends Controller
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \App\Http\Requests\StoreTodoRequest  $request
+     * @param  \App\Http\Requests\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(StoreTodoRequest $request)
+    public function store(Request $request)
     {
-        $user = auth()->user();
+        try {
+            $user = auth()->user();
 
-        $attributes = $request->only([
-            'title',
-            'description',
-            'color'
-        ]);
+            $attributes = $request->only([
+                'title',
+                'description',
+                'color'
+            ]);
 
-        $attributes['user_id'] = $user->id;
+            $attributes['user_id'] = $user->id;
 
-        $response = $this->service->store($attributes);
-        if (!$response['success']) {
-            return redirect('/todos/create')->with('error', $response['message']);
+            $todo = Todo::create($attributes);
+        } catch (\Throwable $th) {
+            logger()->error($th);
+            return redirect('/todos/create')->with('error', 'Erro ao criar TODO');
         }
 
-        return redirect('/dashboard')->with('success', $response['message']);
+        return redirect('/dashboard')->with('success', 'TODO criado com sucesso');
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Models\Todo  $todo
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Todo $todo)
+    {
+        $user = auth()->user();
+        if ($todo->user_id !== $user->id) {
+            abort(404);
+        }
+
+        return view('todos.edit', compact('user', 'todo'));
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \App\Http\Requests\Request  $request
+     * @param  \App\Models\Todo  $todo
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Todo $todo)
+    {
+        try {
+            $user = auth()->user();
+
+            // Verificar se TODO é do usuário
+            if ($todo->user_id !== $user->id) {
+                return response('', 403);
+            }
+    
+            $attributes = $request->only([
+                'title',
+                'description',
+                'color'
+            ]);
+
+            $todo->update($attributes);
+        } catch (\Throwable $th) {
+            logger()->error($th);
+            return redirect('/todos/edit/' . $todo->id)->with('error', 'Erro ao editar TODO');
+        }
+
+        return redirect('/dashboard')->with('success', 'TODO editado com sucesso');
     }
 
     /**
@@ -73,14 +108,21 @@ class TodoController extends Controller
      */
     public function complete(Todo $todo)
     {
-        $user = auth()->user();
+        try {
+            $user = auth()->user();
 
-        $response = $this->service->complete($todo->id, $user->id);
-        
-        return redirect('/dashboard')->with(
-            $response['success'] ? 'success' : 'error',
-            $response['message']
-        );
+            // Verificar se TODO é do usuário
+            if ($todo->user_id !== $user->id) {
+                return response('', 403);
+            }
+
+            $todo->update(['is_complete' => true]);
+        } catch (\Throwable $th) {
+            logger()->error($th);
+            return redirect('/dashboard')->with('error', 'Erro ao completar TODO');
+        }
+
+        return redirect('/dashboard')->with('success', 'TODO completado com sucesso');
     }
 
     /**
@@ -91,11 +133,20 @@ class TodoController extends Controller
      */
     public function destroy(Todo $todo)
     {
-        $response = $this->service->destroy($todo->id, $user->id);
+        try {
+            $user = auth()->user();
 
-        return redirect('/dashboard')->with(
-            $response['success'] ? 'success' : 'error',
-            $response['message']
-        );
+            // Verificar se TODO é do usuário
+            if ($todo->user_id !== $user->id) {
+                return response('', 403);
+            }
+
+            $todo->delete();
+        } catch (\Throwable $th) {
+            logger()->error($th);
+            return redirect('/dashboard')->with('error', 'Erro ao deletar TODO');
+        }
+
+        return redirect('/dashboard')->with('success', 'TODO deletado com sucesso');
     }
 }

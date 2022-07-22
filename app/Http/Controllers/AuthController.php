@@ -2,27 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
-use App\Services\UserService;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
-    /**
-     * @var UserService
-     */
-    protected $service;
-
-    /**
-     * UserController constructor.
-     *
-     * @param UserService $userService
-     */
-    public function __construct(UserService $userService)
-    {
-        $this->userService = $userService;
-    }
-
     /**
      * Mostra página de autenticação de usuário
      *
@@ -52,17 +37,16 @@ class AuthController extends Controller
      */
     public function signin(Request $request)
     {
-        $response = $this->userService->signin(
-            $request->email,
-            $request->password,
-            $request->remember ?: false
-        );
-
-        if (!$response['success']) {
-            return back()->withError($response['message']);
+        try {
+            if (Auth::attempt($request->only('email', 'password'), $request->remember)) {
+                return redirect('/dashboard');
+            }
+        } catch (\Throwable $th) {
+            logger()->error($th);
+            return back()->with('error', 'Erro ao autenticar usuário');
         }
 
-        return redirect('/dashboard');
+        return back()->with('error', 'Credenciais não encontradas');
     }
 
     /**
@@ -74,14 +58,17 @@ class AuthController extends Controller
      */
     public function signup(Request $request)
     {
-        $response = $this->userService->signup(
-            $request->name,
-            $request->email,
-            bcrypt($request->password)
-        );
+        try {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => bcrypt($request->password)
+            ]);
 
-        if (!$response['success']) {
-            return back()->withError($response['message']);
+            Auth::login($user);
+        } catch (\Throwable $th) {
+            logger()->error($th);
+            return back()->with('error', 'Erro ao criar usuário');
         }
 
         return redirect('/dashboard');
