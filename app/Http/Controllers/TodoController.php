@@ -3,9 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Todo;
-use App\Services\TodoService;
-use App\Repositories\TodoRepository;
-use App\Http\Requests\StoreTodoRequest;
 use Illuminate\Http\Request;
 
 class TodoController extends Controller
@@ -53,54 +50,6 @@ class TodoController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\Todo  $todo
-     * @return \Illuminate\Http\Response
-     */
-    public function edit(Todo $todo)
-    {
-        $user = auth()->user();
-        if ($todo->user_id !== $user->id) {
-            abort(404);
-        }
-
-        return view('todos.edit', compact('user', 'todo'));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \App\Http\Requests\Request  $request
-     * @param  \App\Models\Todo  $todo
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, Todo $todo)
-    {
-        try {
-            $user = auth()->user();
-
-            // Verificar se TODO é do usuário
-            if ($todo->user_id !== $user->id) {
-                return response('', 403);
-            }
-    
-            $attributes = $request->only([
-                'title',
-                'description',
-                'color'
-            ]);
-
-            $todo->update($attributes);
-        } catch (\Throwable $th) {
-            logger()->error($th);
-            return redirect('/todos/edit/' . $todo->id)->with('error', 'Erro ao editar TODO');
-        }
-
-        return redirect('/dashboard')->with('success', 'TODO editado com sucesso');
-    }
-
-    /**
      * Complete the specified resource in storage.
      *
      * @param  \App\Models\Todo  $todo
@@ -134,8 +83,6 @@ class TodoController extends Controller
     public function destroy(Todo $todo)
     {
         try {
-            $user = auth()->user();
-
             // Verificar se TODO é do usuário
             if ($todo->user_id !== $user->id) {
                 return response('', 403);
